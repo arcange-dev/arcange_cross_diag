@@ -86,3 +86,7 @@ Windows Authenticode signing is separate from Tauri updater signing. The release
 - The private signing key is only injected into the release workflow from GitHub Secrets.
 - Update checks are user initiated in Settings; no background download or silent installation occurs.
 - Tauri's updater signature authenticates the update bundle, but users should still install only releases published by the project's trusted repository.
+
+## Linux package formats in the v1.0.0-rc series
+
+The `deb` and `rpm` bundlers reject prerelease versions (`1.0.0-rc.2`), and the Tauri version has to stay in step with `package.json`, so Linux release candidates publish an **AppImage** only. The release workflow and the cross-platform checks pass `--bundles appimage` on Linux. Once a stable version without a prerelease suffix is tagged, remove that override to publish DEB and RPM packages again.

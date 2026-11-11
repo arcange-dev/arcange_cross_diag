@@ -128,7 +128,9 @@ jobs:
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc.') }}
           uploadUpdaterJson: true
-          args: --config src-tauri/tauri.release.conf.json
+          # deb/rpm bundlers reject prerelease versions, so Linux publishes an AppImage
+          # while the version carries a prerelease suffix.
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.platform == 'ubuntu-24.04' && '--bundles appimage' || '' }}
 
       - name: Validate generated installer bundle
         run: npm run test:bundle

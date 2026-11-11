@@ -99,7 +99,15 @@ jobs:
       - name: Run Rust unit tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
-      - name: Build native desktop installer bundles
+      # The deb and rpm bundlers reject prerelease versions such as 1.0.0-rc.2, and the
+      # Tauri version must match package.json, so Linux packages are AppImage-only while
+      # the version carries a prerelease suffix.
+      - name: Build native desktop installer bundles (Linux)
+        if: runner.os == 'Linux'
+        run: npm run build:desktop -- --bundles appimage
+
+      - name: Build native desktop installer bundles (Windows)
+        if: runner.os != 'Linux'
         run: npm run build:desktop
 
       - name: Validate generated desktop bundles

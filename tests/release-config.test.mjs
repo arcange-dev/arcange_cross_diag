@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { updaterEndpointForRelease } from "../scripts/release-channel.mjs";
 
 const prepareScript = new URL("../scripts/prepare-release.mjs", import.meta.url);
@@ -14,7 +15,7 @@ const samplePrivateKey = ["untrusted comment: sample private signing key", "RWQ1
 const privateHeader = ["-----BEGIN ", "PRIVATE KEY----- secret"].join("");
 
 function run(script, env) {
-  return spawnSync(process.execPath, [script.pathname], { encoding: "utf8", env });
+  return spawnSync(process.execPath, [fileURLToPath(script)], { encoding: "utf8", env });
 }
 
 test("release configuration embeds only public key and HTTPS updater endpoint", async () => {
