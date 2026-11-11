@@ -1,9 +1,13 @@
-# Complete application source archive
+# Application source archive
 
-File: `arcange-crossdiag-v1.0.0-rc.2.zip`
+**Upload still required:** add the file `arcange-crossdiag-v1.0.0-rc.2.zip` to this directory.
 
-This archive contains the full source tree, platform-specific Rust engine, React/TypeScript frontend, Tauri configuration, CI workflows, scripts, documentation, tests, and application icons.
+Download the archive from the CrossDiag v1.0.0-rc.2 development handoff, then use GitHub **Add file → Upload files** to commit it to this branch.
 
-SHA-256: `efa6f35672ec8e1fbb275ac7d67d0b83a0a84f9b7b2d15d60864bece3c103437`
+The Windows installer workflow is configured to skip its build job until this exact file exists:
 
-Extract using `scripts/extract-source.ps1` from the repository root, or with any ZIP utility.
+`source/arcange-crossdiag-v1.0.0-rc.2.zip`
+
+Expected archive SHA-256:
+
+`efa6f35672ec8e1fbb275ac7d67d0b83a0a84f9b7b2d15d60864bece3c103437`
