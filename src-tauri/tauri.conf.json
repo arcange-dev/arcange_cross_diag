@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Arcange CrossDiag",
+  "version": "1.0.0-rc.2",
+  "identifier": "dev.arcange.crossdiag",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Arcange CrossDiag",
+        "width": 1440,
+        "height": 960,
+        "minWidth": 860,
+        "minHeight": 640,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+      "freezePrototype": true,
+      "capabilities": [
+        "main-window"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "category": "Utility",
+    "shortDescription": "Open-source PC diagnostic toolkit",
+    "longDescription": "Cross-platform inventory and guided diagnostics for Windows and Linux PCs.",
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

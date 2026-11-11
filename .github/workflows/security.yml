@@ -1,0 +1,74 @@
+name: Security and dependency review
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+      - name: Generate Cargo.lock
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+      - name: Audit Rust dependencies
+        working-directory: src-tauri
+        run: cargo audit --deny warnings
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  codeql:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf libwebkit2gtk-4.1-dev libxdo-dev
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript, rust
+          build-mode: manual
+      - name: Build frontend and Rust code
+        run: |
+          npm run build
+          cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3

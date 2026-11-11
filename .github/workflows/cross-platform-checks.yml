@@ -1,0 +1,114 @@
+name: Cross-platform checks and desktop bundles
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install Linux Tauri prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl wget file pkg-config libssl-dev \
+            libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf libwebkit2gtk-4.1-dev libxdo-dev
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Check toolchain
+        run: npm run doctor
+
+      - name: Run Windows first-PC read-only preflight
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/first-pc-test.ps1
+
+      - name: Audit cross-platform source contracts
+        run: npm run test:source
+
+      - name: Test first-PC preflight safety contract
+        run: npm run test:first-pc:script
+
+      - name: Audit security-sensitive source configuration
+        run: npm run test:security:source
+
+      - name: Run storage trend regression tests
+        run: npm run test:storage-trends
+
+      - name: Verify package, Tauri, Cargo and release versions
+        run: npm run test:release
+
+      - name: Test updater release config generator
+        run: npm run test:release-config
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
+      - name: Type-check and build frontend
+        run: npm run build
+
+      - name: Format Rust sources
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Generate Rust dependency lockfile
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+
+      - name: Audit Rust dependencies
+        working-directory: src-tauri
+        run: cargo audit --deny warnings
+
+      - name: Run SQLite storage-history migration tests
+        run: npm run test:storage-history
+
+      - name: Run native command-output tests
+        run: npm run test:command-output
+
+      - name: Run Rust unit tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build native desktop installer bundles
+        run: npm run build:desktop
+
+      - name: Validate generated desktop bundles
+        run: npm run test:bundle
+
+      - name: Upload desktop bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: crossdiag-${{ github.sha }}-${{ runner.os }}
+          path: src-tauri/target/release/bundle/**
+          if-no-files-found: error
+          retention-days: 14

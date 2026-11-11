@@ -1,9 +1,10 @@
 name: Build Windows installer (.exe)
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: read
@@ -14,74 +15,43 @@ concurrency:
 
 jobs:
   windows-installer:
-    # The source archive must be uploaded to source/ before the build can run.
-    if: ${{ hashFiles('source/arcange-crossdiag-v1.0.0-rc.2.zip') != '' }}
-    name: Build and test Windows setup (.exe)
+    name: Build and verify Windows setup (.exe)
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
 
-      - name: Extract complete CrossDiag source
-        shell: pwsh
-        run: |
-          $archive = Join-Path $env:GITHUB_WORKSPACE "source/arcange-crossdiag-v1.0.0-rc.2.zip"
-          if (-not (Test-Path -LiteralPath $archive)) {
-            throw "CrossDiag source archive is missing: $archive"
-          }
-          $extract = Join-Path $env:RUNNER_TEMP "crossdiag-source"
-          if (Test-Path -LiteralPath $extract) {
-            Remove-Item -LiteralPath $extract -Recurse -Force
-          }
-          Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
-          $project = Get-ChildItem -LiteralPath $extract -Directory |
-            Where-Object { Test-Path (Join-Path $_.FullName "package.json") } |
-            Select-Object -First 1
-          if (-not $project) {
-            throw "The ZIP does not contain a CrossDiag project with package.json."
-          }
-          Get-ChildItem -LiteralPath $project.FullName -Force | ForEach-Object {
-            Copy-Item -LiteralPath $_.FullName -Destination $env:GITHUB_WORKSPACE -Recurse -Force
-          }
-          if (-not (Test-Path (Join-Path $env:GITHUB_WORKSPACE "src-tauri/tauri.conf.json"))) {
-            throw "Tauri application source was not extracted correctly."
-          }
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
 
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
 
       - name: Run source, security and release checks
-        shell: pwsh
         run: |
           npm run test:source
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:security:source
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:release
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:release-config
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:storage-trends
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:first-pc:script
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Type-check and build frontend
         run: npm run build
-
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
       - name: Run Rust tests
         run: npm run test:rust
