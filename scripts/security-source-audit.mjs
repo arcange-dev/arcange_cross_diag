@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../", import.meta.url);
+const root = fileURLToPath(new URL("../", import.meta.url));
 const [gitignore, capabilityText, tauriConfigText, updaterText, releaseScriptText, releaseWorkflowText, rustSource, signingPreflightText] = await Promise.all([
   readFile(new URL("../.gitignore", import.meta.url), "utf8"),
   readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
@@ -54,10 +55,10 @@ async function walk(directory) {
     const fullPath = path.join(directory, entry.name);
     const content = await readFile(fullPath, "utf8");
     scanned += 1;
-    assert.ok(!secretPattern.test(content), `Possible private key material found in ${path.relative(new URL(root).pathname, fullPath)}`);
+    assert.ok(!secretPattern.test(content), `Possible private key material found in ${path.relative(root, fullPath)}`);
   }
 }
-await walk(new URL("../", import.meta.url).pathname);
+await walk(root);
 
 process.stdout.write(`[OK] Security source audit scanned ${scanned} text files; no PEM private-key block was found.\n`);
 process.stdout.write("[OK] Secret-file ignore rules, least-privilege Tauri capabilities, updater gating, signed release secrets and WebView security settings are present.\n");

@@ -20,6 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
@@ -34,8 +35,12 @@ jobs:
         working-directory: src-tauri
         run: cargo audit --deny warnings
 
+  # Dependency review needs the repository Dependency graph. It is unavailable on this
+  # repository, so it is kept as an opt-in manual job. Enable the Dependency graph under
+  # Settings -> Code security and change the condition to `github.event_name == 'pull_request'`
+  # or dispatch this job manually.
   dependency-review:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -46,13 +51,30 @@ jobs:
         with:
           fail-on-severity: high
 
-  codeql:
+  codeql-javascript:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+
+  codeql-rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build prerequisites
         run: |
@@ -64,7 +86,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: javascript-typescript, rust
+          languages: rust
           build-mode: manual
       - name: Build frontend and Rust code
         run: |
