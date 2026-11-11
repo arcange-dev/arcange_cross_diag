@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   windows-installer:
+    # The source archive must be uploaded to source/ before the build can run.
+    if: ${{ hashFiles('source/arcange-crossdiag-v1.0.0-rc.2.zip') != '' }}
     name: Build and test Windows setup (.exe)
     runs-on: windows-latest
     timeout-minutes: 90
