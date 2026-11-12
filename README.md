@@ -7,6 +7,31 @@ Arcange CrossDiag is a local-first desktop technician application built with **R
 
 > CrossDiag is a diagnostic assistant, not a guarantee that hardware is fault-free. Device enumeration does not prove a component is physically healthy. SMART, sensor and event-log results have limitations; physical connector, cable, motherboard, PSU and intermittent faults can require test equipment or inspection.
 
+## Running the desktop application
+
+`npm run dev` only starts the Vite frontend server on `http://127.0.0.1:1420` and never opens a
+window. The native desktop application is started with:
+
+```bash
+npm install          # once
+npm run start        # tauri dev, compiles src-tauri and opens the window
+```
+
+A ready-to-install Windows build is produced by the **Build Windows installer (.exe)** workflow
+and is published as `Arcange-CrossDiag-Setup-x64.exe`. Building it locally with
+`npm run build:desktop` requires Node.js 22+, the Rust MSVC toolchain, the Visual Studio C++
+build tools and the Microsoft WebView2 runtime.
+
+If nothing opens, run the read-only evidence collector and send the generated report:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-launch-diagnosis.ps1 -Launch
+```
+
+Startup failures of the release executable are written to
+`%LOCALAPPDATA%\Arcange CrossDiag\startup-error.log`. The full decision table is in
+[Windows launch troubleshooting](docs/windows-launch-troubleshooting.md).
+
 ## v1.0.0-rc.2 — first-PC validation candidate
 
 This is a **release candidate**, not a production-verified stable release. It consolidates the v0.10.0 feature set, strengthens the release gate, and adds a guided first-PC validation workflow:

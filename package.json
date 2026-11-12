@@ -15,7 +15,7 @@
     "build:desktop": "tauri build",
     "setup": "node scripts/setup.mjs",
     "typecheck": "tsc -b --pretty false",
-    "test:ci": "npm run test:source && npm run test:security:source && npm run test:release && npm run test:release-config && npm run test:storage-trends && npm run test:first-pc:script && npm run test:storage-history && npm run test:command-output && npm run typecheck && npm run build && npm run test:rust && npm run build:desktop && npm run test:bundle",
+    "test:ci": "npm run test:source && npm run test:security:source && npm run test:release && npm run test:release-config && npm run test:storage-trends && npm run test:first-pc:script && npm run test:startup && npm run test:storage-history && npm run test:command-output && npm run typecheck && npm run build && npm run test:rust && npm run build:desktop && npm run test:bundle",
     "test:source": "node scripts/source-audit.mjs",
     "configure:release": "node scripts/prepare-release.mjs",
     "test:release": "node scripts/release-preflight.mjs",
@@ -26,7 +26,10 @@
     "validate:release-secrets": "node scripts/validate-release-secrets.mjs",
     "test:release-config": "node --test tests/release-config.test.mjs",
     "test:first-pc:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/first-pc-test.ps1",
-    "test:first-pc:script": "node --test tests/first-pc-test-script.test.mjs"
+    "test:first-pc:script": "node --test tests/first-pc-test-script.test.mjs",
+    "start": "tauri dev",
+    "diagnose:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/windows-launch-diagnosis.ps1",
+    "test:startup": "node --test tests/startup-contract.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",

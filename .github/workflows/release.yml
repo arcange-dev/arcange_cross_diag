@@ -13,8 +13,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  signing-readiness:
+    name: Check release signing configuration
+    runs-on: ubuntu-24.04
+    outputs:
+      signed: ${{ steps.check.outputs.signed }}
+    steps:
+      - name: Check for the updater signing key
+        id: check
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not configured, so the signed release is skipped. Use the 'Build Windows installer (.exe)' workflow for an unsigned setup executable."
+          fi
+
   publish:
     name: Build and publish ${{ matrix.platform }}
+    needs: signing-readiness
+    if: needs.signing-readiness.outputs.signed == 'true'
     strategy:
       fail-fast: false
       max-parallel: 1

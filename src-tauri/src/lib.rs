@@ -4,7 +4,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::Read,
+    io::{Read, Write},
     process::{Command, Stdio},
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -4824,8 +4824,40 @@ fn open_system_update_settings() -> Result<String, String> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Writes a startup failure to a file the user can send for support.
+///
+/// Release builds are compiled with `windows_subsystem = "windows"`, so a startup error would
+/// otherwise be invisible: no window, no console, nothing in Task Manager. Every failure is now
+/// recorded next to the application data and echoed to stderr.
+fn report_startup_failure(message: &str) {
+    eprintln!("Arcange CrossDiag could not start: {message}");
+    let directory = std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .map(|base| base.join("Arcange CrossDiag"))
+        .or_else(|| std::env::var_os("XDG_STATE_HOME").map(std::path::PathBuf::from))
+        .unwrap_or_else(std::env::temp_dir);
+    let _ = fs::create_dir_all(&directory);
+    let log_path = directory.join("startup-error.log");
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+    let entry = format!(
+        "unix_timestamp={stamp}\nversion={}\nplatform={}/{}\nerror={message}\n\n",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
+    let _ = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .and_then(|mut file| file.write_all(entry.as_bytes()));
+    eprintln!("Startup failure details written to {}", log_path.display());
+}
+
 pub fn run() {
-    tauri::Builder::default()
+    let startup_result = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
@@ -4856,8 +4888,12 @@ pub fn run() {
             inspect_recovery_image,
             list_recovery_media
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Arcange CrossDiag");
+        .run(tauri::generate_context!());
+
+    if let Err(error) = startup_result {
+        report_startup_failure(&error.to_string());
+        std::process::exit(1);
+    }
 }
 
 #[cfg(test)]
