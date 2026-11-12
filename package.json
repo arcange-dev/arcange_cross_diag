@@ -1,0 +1,52 @@
+{
+  "name": "arcange-crossdiag",
+  "private": true,
+  "version": "1.0.0-rc.2",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 1420",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "doctor": "node scripts/doctor.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:storage-history": "cargo test --manifest-path src-tauri/Cargo.toml storage_history",
+    "test:command-output": "cargo test --manifest-path src-tauri/Cargo.toml command_output_reader",
+    "build:desktop": "tauri build",
+    "setup": "node scripts/setup.mjs",
+    "typecheck": "tsc -b --pretty false",
+    "test:ci": "npm run test:source && npm run test:security:source && npm run test:release && npm run test:release-config && npm run test:storage-trends && npm run test:first-pc:script && npm run test:storage-history && npm run test:command-output && npm run typecheck && npm run build && npm run test:rust && npm run build:desktop && npm run test:bundle",
+    "test:source": "node scripts/source-audit.mjs",
+    "configure:release": "node scripts/prepare-release.mjs",
+    "test:release": "node scripts/release-preflight.mjs",
+    "security:audit": "npm audit --audit-level=high",
+    "test:security:source": "node scripts/security-source-audit.mjs",
+    "test:bundle": "node scripts/validate-bundles.mjs",
+    "test:storage-trends": "node --test tests/storage-trends.test.mjs",
+    "validate:release-secrets": "node scripts/validate-release-secrets.mjs",
+    "test:release-config": "node --test tests/release-config.test.mjs",
+    "test:first-pc:windows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/first-pc-test.ps1",
+    "test:first-pc:script": "node --test tests/first-pc-test-script.test.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "@tauri-apps/plugin-updater": "^2.10.0",
+    "@tauri-apps/plugin-process": "^2.2.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.2",
+    "typescript": "~5.8.3",
+    "vite": "^7.1.5"
+  },
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  }
+}

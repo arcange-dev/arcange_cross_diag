@@ -1,0 +1,136 @@
+name: Publish signed desktop release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crossdiag-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        platform: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 90
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install Linux Tauri prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl wget file pkg-config libssl-dev \
+            libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf libwebkit2gtk-4.1-dev libxdo-dev libfuse2
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run storage trend regression tests
+        run: npm run test:storage-trends
+
+      - name: Verify release version
+        run: npm run test:release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+
+      - name: Validate signing configuration is present
+        run: npm run validate:release-secrets
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Test updater release config generator
+        run: npm run test:release-config
+
+      - name: Prepare signed updater configuration
+        run: npm run configure:release
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+          RELEASE_TAG: ${{ github.ref_name }}
+
+      - name: Audit source contracts
+        run: npm run test:source
+
+      - name: Test first-PC preflight safety contract
+        run: npm run test:first-pc:script
+
+      - name: Audit security-sensitive source configuration
+        run: npm run test:security:source
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
+      - name: Generate Rust dependency lockfile
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+
+      - name: Audit Rust dependencies
+        working-directory: src-tauri
+        run: cargo audit --deny warnings
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run SQLite storage-history migration tests
+        run: npm run test:storage-history
+
+      - name: Run native command-output tests
+        run: npm run test:command-output
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build frontend with updater enabled
+        run: npm run build
+        env:
+          VITE_UPDATER_ENABLED: "true"
+
+      - name: Build and publish Tauri assets
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_UPDATER_ENABLED: "true"
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Arcange CrossDiag ${{ github.ref_name }}"
+          releaseBody: "Windows and Linux installers plus signed in-app update artifacts. Review the release notes and platform-specific installation instructions before installing."
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, '-rc.') }}
+          uploadUpdaterJson: true
+          # deb/rpm bundlers reject prerelease versions, so Linux publishes an AppImage
+          # while the version carries a prerelease suffix.
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.platform == 'ubuntu-24.04' && '--bundles appimage' || '' }}
+
+      - name: Validate generated installer bundle
+        run: npm run test:bundle

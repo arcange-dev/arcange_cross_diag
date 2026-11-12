@@ -1,0 +1,82 @@
+name: Build Windows installer (.exe)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-installer:
+    name: Build and verify Windows setup (.exe)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run source, security and release checks
+        run: |
+          npm run test:source
+          npm run test:security:source
+          npm run test:release
+          npm run test:release-config
+          npm run test:storage-trends
+          npm run test:first-pc:script
+
+      - name: Type-check and build frontend
+        run: npm run build
+
+      - name: Run Rust tests
+        run: npm run test:rust
+
+      - name: Build Windows desktop bundles
+        run: npm run build:desktop
+
+      - name: Verify NSIS setup executable exists
+        shell: pwsh
+        run: |
+          $setupDir = "src-tauri/target/release/bundle/nsis"
+          $setups = @(Get-ChildItem -Path $setupDir -Filter "*.exe" -File -ErrorAction SilentlyContinue)
+          if ($setups.Count -lt 1) {
+            throw "No NSIS setup .exe was generated in $setupDir"
+          }
+          $setups | ForEach-Object {
+            Write-Host ("Installer: {0} ({1:N1} MB)" -f $_.FullName, ($_.Length / 1MB))
+          }
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcange-crossdiag-windows-setup
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,16 @@
+# cargo-audit configuration. cargo-audit reads ./.cargo/audit.toml from the directory it
+# runs in, and the CI/release workflows run `cargo audit` inside src-tauri/.
+#
+# RUSTSEC-2026-0459 (libsqlite3-sys / CVE-2026-119375) is already resolved by requiring
+# rusqlite 0.41, which bundles libsqlite3-sys 0.39.1 (SQLite 3.54.1). Do not ignore it:
+# keep the dependency patched instead of acknowledging the advisory.
+#
+# The two advisories below are inherited from the Tauri/GTK build stack and have no
+# upgrade we can take yet. They are unmaintained/unsound warnings rather than exploitable
+# vulnerabilities in CrossDiag code paths, so they are acknowledged explicitly instead of
+# being silently dropped. Remove an entry as soon as a Tauri dependency bump clears it.
+[advisories]
+ignore = [
+    "RUSTSEC-2024-0370", # proc-macro-error is unmaintained (transitive build dependency)
+    "RUSTSEC-2024-0429", # glib is unsound (transitive via the Linux GTK/WebKit stack)
+]
