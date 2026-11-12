@@ -4,7 +4,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{Read, Write},
+    io::Read,
     process::{Command, Stdio},
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -4852,7 +4852,7 @@ fn report_startup_failure(message: &str) {
         .create(true)
         .append(true)
         .open(&log_path)
-        .and_then(|mut file| file.write_all(entry.as_bytes()));
+        .and_then(|mut file| std::io::Write::write_all(&mut file, entry.as_bytes()));
     eprintln!("Startup failure details written to {}", log_path.display());
 }
 
