@@ -70,6 +70,9 @@ jobs:
       - name: Test updater release config generator
         run: npm run test:release-config
 
+      - name: Test the native startup contract
+        run: npm run test:startup
+
       - name: Audit npm dependencies
         run: npm audit --audit-level=high
 
