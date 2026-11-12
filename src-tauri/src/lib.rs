@@ -2279,263 +2279,693 @@ fn collect_gpu_telemetry() -> Vec<GpuTelemetry> {
     results
 }
 
-fn vendor_support_profile(manufacturer: &str, model: &str) -> VendorSupportProfile {
-    let brand = manufacturer.to_ascii_lowercase();
-    let model_lower = model.to_ascii_lowercase();
-    let (vendor, support_url, utility, setup, boot, notes, families): (
-        &str,
-        Option<&str>,
-        Option<&str>,
-        &str,
-        &str,
-        &str,
-        &[&str],
-    ) = if brand.contains("hewlett") || brand == "hp" || brand.starts_with("hp ") {
-        (
-            "HP",
-            Some("https://support.hp.com/"),
-            Some("HP PC Hardware Diagnostics UEFI / HP Support Assistant"),
-            "Esc, then F10 on many models",
-            "Esc, then F9 on many models",
-            "Verify the exact product number and BIOS instructions before firmware work.",
-            &[
-                "elitebook",
-                "probook",
-                "zbook",
-                "spectre",
-                "envy",
-                "pavilion",
-                "omen",
-                "victus",
-            ],
-        )
-    } else if brand.contains("dell") || brand.contains("alienware") {
-        ("Dell", Some("https://www.dell.com/support/home/"), Some("Dell SupportAssist / ePSA pre-boot diagnostics"), "F2 on many models", "F12 on many models", "Use the Service Tag only on Dell's official support site; pre-boot tests vary by model.", &["latitude", "inspiron", "optiplex", "precision", "xps", "vostro", "alienware"])
-    } else if brand.contains("lenovo") {
-        (
-            "Lenovo",
-            Some("https://support.lenovo.com/"),
-            Some("Lenovo Diagnostics / Lenovo Vantage"),
-            "F1 or F2; Novo button on supported models",
-            "F12 or Novo button on supported models",
-            "ThinkPad, ThinkBook, IdeaPad and Legion entry methods differ by model generation.",
-            &[
-                "thinkpad",
-                "thinkcentre",
-                "thinkbook",
-                "ideapad",
-                "yoga",
-                "legion",
-                "loq",
-            ],
-        )
-    } else if brand.contains("acer") {
-        (
-            "Acer",
-            Some("https://www.acer.com/support"),
-            Some("Acer Diagnostics / Care Center where supported"),
-            "F2 on many models",
-            "F12 on many models; may need enabling in firmware",
-            "Confirm the exact model manual before changing boot configuration.",
-            &["aspire", "swift", "spin", "travelmate", "predator", "nitro"],
-        )
-    } else if brand.contains("asus") || brand.contains("asustek") {
-        (
-            "ASUS",
-            Some("https://www.asus.com/support/"),
-            Some("MyASUS / ASUS System Diagnosis where supported"),
-            "F2 or Delete on many models",
-            "Esc on many models",
-            "Use only drivers and firmware matching the complete product model.",
-            &["vivobook", "zenbook", "expertbook", "proart", "rog", "tuf"],
-        )
-    } else if brand.contains("micro-star") || brand == "msi" || brand.contains("msi computer") {
-        (
-            "MSI",
-            Some("https://www.msi.com/support"),
-            Some("MSI Center / MSI pre-boot diagnostics where supported"),
-            "Delete on many models",
-            "F11 on many models",
-            "Firmware keys and available tests vary between MSI laptop and motherboard families.",
-            &[
-                "katana", "raider", "titan", "stealth", "prestige", "modern", "cyborg",
-            ],
-        )
-    } else if brand.contains("microsoft") || brand.contains("surface") {
-        (
-            "Microsoft Surface",
-            Some("https://support.microsoft.com/surface"),
-            Some("Surface Diagnostic Toolkit where supported"),
-            "Hold Volume Up while pressing Power on supported Surface devices",
-            "Use the documented Surface boot sequence",
-            "Follow the model-specific Surface UEFI documentation.",
-            &[
-                "surface pro",
-                "surface laptop",
-                "surface go",
-                "surface book",
-            ],
-        )
-    } else if brand.contains("samsung") {
-        (
-            "Samsung",
-            Some("https://www.samsung.com/support/"),
-            Some("Samsung Update / Samsung Settings where supported"),
-            "F2 on many models",
-            "F10 or Esc on some models",
-            "Check the model-specific Samsung support manual.",
-            &["galaxy book"],
-        )
-    } else if brand.contains("gigabyte") {
-        (
-            "GIGABYTE",
-            Some("https://www.gigabyte.com/Support"),
-            Some("GIGABYTE Control Center / UEFI diagnostics where supported"),
-            "Delete on many systems",
-            "F12 on many systems",
-            "Motherboard and laptop firmware procedures differ.",
-            &["aero", "aorus"],
-        )
-    } else if brand.contains("apple") {
-        ("Apple (Windows/Boot Camp or supported hardware context)", Some("https://support.apple.com/"), Some("Apple Diagnostics runs in macOS recovery environment"), "Use the model-specific Apple startup procedure", "Use the model-specific startup options", "CrossDiag does not replace Apple Diagnostics or support firmware modification on Apple hardware.", &["macbook", "imac", "mac mini", "mac pro"])
-    } else if brand.contains("huawei") {
-        (
-            "HUAWEI",
-            Some("https://consumer.huawei.com/support/"),
-            Some("HUAWEI PC Manager where supported"),
-            "F2 on many models",
-            "F12 on some models",
-            "Check the exact MateBook model instructions.",
-            &["matebook"],
-        )
-    } else if brand.contains("dynabook") || brand.contains("toshiba") {
-        (
-            "Dynabook / Toshiba",
-            Some("https://www.dynabook.com/support"),
-            Some("Dynabook PC Health Monitor where supported"),
-            "F2 on many models",
-            "F12 on many models",
-            "Legacy Toshiba and newer Dynabook models have different support resources.",
-            &["satellite", "portege", "tecra"],
-        )
-    } else if brand.contains("xiaomi") || brand.contains("redmi") {
-        (
-            "Xiaomi / Redmi",
-            Some("https://www.mi.com/global/support/"),
-            Some("Xiaomi PC Manager where supported"),
-            "F2 on many models",
-            "F12 on some models",
-            "Use the exact regional model and official support package.",
-            &["redmibook", "xiaomi book", "mi notebook"],
-        )
-    } else if brand.contains("honor") {
-        (
-            "HONOR",
-            Some("https://www.honor.com/global/support/"),
-            Some("HONOR PC Manager where supported"),
-            "F2 on many models",
-            "F12 on some models",
-            "Confirm the product's regional model identifier before downloading drivers.",
-            &["magicbook"],
-        )
-    } else if brand.contains("fujitsu") {
-        (
-            "Fujitsu",
-            Some("https://support.ts.fujitsu.com/"),
-            Some("Fujitsu Diagnostics / DeskUpdate where supported"),
-            "F2 on many models",
-            "F12 or Esc on some models",
-            "Business and workstation models can have model-specific service procedures.",
-            &["lifebook", "esprimo", "celius", "celsius"],
-        )
-    } else if brand.contains("panasonic") {
-        (
-            "Panasonic",
-            Some("https://pc-dl.panasonic.co.jp/itn/support/"),
-            Some("Panasonic PC Settings / Toughbook diagnostics where supported"),
-            "F2 or F9 on some models",
-            "F12 or F2 on some models",
-            "Rugged Toughbook hardware uses model-specific diagnostics and firmware guidance.",
-            &["toughbook", "toughpad"],
-        )
-    } else if brand.contains("razer") {
-        (
-            "Razer",
-            Some("https://mysupport.razer.com/"),
-            Some("Razer Synapse and model-specific support diagnostics"),
-            "F1, F2 or Delete depending on model",
-            "F12 or Esc depending on model",
-            "Check the exact Blade model and region before using firmware or drivers.",
-            &["blade", "book"],
-        )
-    } else if brand.contains("lg electronics") || brand == "lg" {
-        (
-            "LG",
-            Some("https://www.lg.com/us/support/"),
-            Some("LG Update Center / LG Smart Assistant where supported"),
-            "F2 on many models",
-            "F10 or F12 on some models",
-            "LG Gram support and firmware downloads are model- and region-specific.",
-            &["gram", "ultrapc"],
-        )
-    } else if brand.contains("vaio") || brand.contains("sony") {
-        (
-            "VAIO / Sony",
-            Some("https://support.us.vaio.com/"),
-            Some("VAIO Care / VAIO Update where supported"),
-            "Assist button, F2 or model-specific key",
-            "Assist button or F11/F12 depending on model",
-            "Legacy Sony VAIO and current VAIO product support may use different regional portals.",
-            &["vaio", "sx"],
-        )
-    } else if brand.contains("medion") {
-        (
-            "MEDION",
-            Some("https://www.medion.com/gb/service/"),
-            Some("MEDION Service App / model-specific diagnostics"),
-            "F2 on many models",
-            "F10 or F12 on some models",
-            "Use the full MSN/product number for the correct drivers and manuals.",
-            &["akoya", "erazer"],
-        )
-    } else if brand.contains("framework") {
-        ("Framework", Some("https://frame.work/support"), Some("Framework support guides and hardware diagnostics"), "F2 or F12 on many models", "F12 on many models", "Use Framework's model-specific guides; module replacement procedures differ by generation.", &["laptop"])
-    } else if brand.contains("system76") {
-        (
-            "System76",
-            Some("https://support.system76.com/"),
-            Some("System76 Diagnostics / firmware manager where supported"),
-            "F2 or Delete depending on model",
-            "F7/F10/F12 depending on model",
-            "System76 firmware and Pop!_OS guidance is model-specific.",
-            &["gazelle", "lemur", "oryx", "pangolin", "thelio"],
-        )
-    } else if brand.contains("asrock") {
-        (
-            "ASRock",
-            Some("https://www.asrock.com/support/"),
-            Some("UEFI diagnostics and vendor motherboard utilities"),
-            "F2 or Delete on many boards",
-            "F11 on many boards",
-            "Use the exact motherboard model and revision for BIOS and driver packages.",
-            &["b650", "b550", "x670", "z790", "steel legend", "taichi"],
-        )
-    } else {
-        ("Unknown / custom manufacturer", None, None, "Check the exact model manual; common keys include F2 or Delete", "Check the exact model manual; common keys include F12 or Esc", "No manufacturer was confidently matched. Do not use another vendor's firmware package.", &[])
-    };
-    let product_family = families
-        .iter()
-        .find(|family| model_lower.contains(**family))
-        .map(|family| family.to_string());
-    VendorSupportProfile {
-        vendor: vendor.into(),
-        product_family,
-        support_url: support_url.map(str::to_string),
-        diagnostic_utility: utility.map(str::to_string),
-        firmware_setup_hint: setup.into(),
-        boot_menu_hint: boot.into(),
-        notes: notes.into(),
+/// One entry of the CrossDiag brand catalogue.
+///
+/// The catalogue is data instead of a chain of `if` statements, so a new brand is one entry,
+/// every vendor is matched by exactly the same rules, and the mapping is unit tested.
+struct VendorProfile {
+    vendor: &'static str,
+    /// Lowercase fragments matched against the SMBIOS manufacturer or board vendor string.
+    aliases: &'static [&'static str],
+    /// Lowercase model fragments used to name the product family. The first match wins, so
+    /// list the most informative fragment first (chipset before marketing line on desktop boards).
+    families: &'static [&'static str],
+    support_url: Option<&'static str>,
+    utility: Option<&'static str>,
+    setup_key: &'static str,
+    boot_key: &'static str,
+    notes: &'static str,
+}
+
+const DESKTOP_SETUP_KEY: &str = "Delete or F2 on most desktop boards";
+const DESKTOP_BOOT_KEY: &str = "F11, F12 or Esc for the one-time boot menu on most desktop boards";
+const BOARD_NOTE: &str =
+    "Desktop and custom builds use the motherboard vendor firmware. Confirm the exact board \
+     model and revision before updating BIOS or chipset drivers.";
+const REGIONAL_NOTE: &str =
+    "Support portals, model names and firmware packages are region specific. Use the model \
+     number printed on the device and the manufacturer's official portal for your country.";
+
+static VENDOR_PROFILES: &[VendorProfile] = &[
+    VendorProfile {
+        vendor: "HP",
+        aliases: &["hewlett", "hp inc", "hp"],
+        families: &["elitebook", "probook", "zbook", "spectre", "envy", "pavilion", "omen", "victus", "omnibook", "dragonfly", "elitedesk", "prodesk"],
+        support_url: Some("https://support.hp.com/"),
+        utility: Some("HP PC Hardware Diagnostics UEFI / HP Support Assistant"),
+        setup_key: "Esc, then F10 on many models",
+        boot_key: "Esc, then F9 on many models",
+        notes: "Verify the exact product number before firmware work; consumer and business lines use different portals.",
+    },
+    VendorProfile {
+        vendor: "Dell",
+        aliases: &["dell", "alienware"],
+        families: &["latitude", "inspiron", "optiplex", "precision", "xps", "vostro", "alienware", "g15", "g16", "pro max", "precision"],
+        support_url: Some("https://www.dell.com/support/home/"),
+        utility: Some("Dell SupportAssist / ePSA pre-boot diagnostics"),
+        setup_key: "F2 on many models",
+        boot_key: "F12 on many models",
+        notes: "Use the Service Tag only on Dell's official support site; pre-boot tests vary by model.",
+    },
+    VendorProfile {
+        vendor: "Lenovo",
+        aliases: &["lenovo"],
+        families: &["thinkpad", "thinkcentre", "thinkbook", "ideapad", "yoga", "legion", "loq", "duet", "v15", "v17"],
+        support_url: Some("https://support.lenovo.com/"),
+        utility: Some("Lenovo Diagnostics / Lenovo Vantage"),
+        setup_key: "F1 or F2; Novo button on supported models",
+        boot_key: "F12 or Novo button on supported models",
+        notes: "ThinkPad, ThinkBook, IdeaPad and Legion entry methods differ by model generation.",
+    },
+    VendorProfile {
+        vendor: "Acer",
+        aliases: &["acer"],
+        families: &["aspire", "swift", "spin", "travelmate", "predator", "nitro", "extensa"],
+        support_url: Some("https://www.acer.com/support"),
+        utility: Some("Acer Diagnostics / Care Center where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F12 on many models; may need enabling in firmware",
+        notes: "Confirm the exact model manual before changing boot configuration.",
+    },
+    VendorProfile {
+        vendor: "ASUS",
+        aliases: &["asus", "asustek"],
+        families: &["vivobook", "zenbook", "expertbook", "proart", "rog", "tuf", "nuc", "prime", "tuf gaming"],
+        support_url: Some("https://www.asus.com/support/"),
+        utility: Some("MyASUS / ASUS System Diagnosis where supported"),
+        setup_key: "F2 or Delete on many models",
+        boot_key: "Esc on many models",
+        notes: "Use only drivers and firmware matching the complete product model; ASUS now services Intel NUC systems.",
+    },
+    VendorProfile {
+        vendor: "MSI",
+        aliases: &["micro-star", "msi computer", "msi"],
+        families: &["katana", "raider", "titan", "stealth", "prestige", "modern", "cyborg", "vector", "sword", "creator", "summit"],
+        support_url: Some("https://www.msi.com/support"),
+        utility: Some("MSI Center / MSI pre-boot diagnostics where supported"),
+        setup_key: "Delete on many models",
+        boot_key: "F11 on many models",
+        notes: "Firmware keys and available tests vary between MSI laptop and motherboard families.",
+    },
+    VendorProfile {
+        vendor: "Apple",
+        aliases: &["apple"],
+        families: &["macbook", "imac", "mac mini", "mac pro", "mac studio"],
+        support_url: Some("https://support.apple.com/"),
+        utility: Some("Apple Diagnostics runs from the macOS recovery environment"),
+        setup_key: "Use the model-specific Apple startup procedure",
+        boot_key: "Use the model-specific startup options",
+        notes: "Intel-based Macs can run Windows through Boot Camp; Apple silicon models run Windows only inside a virtual machine, where hardware readings are not representative. CrossDiag does not modify Apple firmware.",
+    },
+    VendorProfile {
+        vendor: "Microsoft Surface",
+        aliases: &["microsoft", "surface"],
+        families: &["surface pro", "surface laptop", "surface go", "surface book", "surface studio"],
+        support_url: Some("https://support.microsoft.com/surface"),
+        utility: Some("Surface Diagnostic Toolkit where supported"),
+        setup_key: "Hold Volume Up while pressing Power on supported Surface devices",
+        boot_key: "Use the documented Surface boot sequence",
+        notes: "Follow the model-specific Surface UEFI documentation.",
+    },
+    VendorProfile {
+        vendor: "Samsung",
+        aliases: &["samsung"],
+        families: &["galaxy book", "notebook"],
+        support_url: Some("https://www.samsung.com/support/"),
+        utility: Some("Samsung Update / Samsung Settings where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F10 or Esc on some models",
+        notes: "Check the model-specific Samsung support manual; regional model codes differ.",
+    },
+    VendorProfile {
+        vendor: "Razer",
+        aliases: &["razer"],
+        families: &["blade", "book"],
+        support_url: Some("https://mysupport.razer.com/"),
+        utility: Some("Razer Synapse and model-specific support diagnostics"),
+        setup_key: "F1, F2 or Delete depending on model",
+        boot_key: "F12 or Esc depending on model",
+        notes: "Check the exact Blade model and region before using firmware or drivers.",
+    },
+    VendorProfile {
+        vendor: "Fujitsu",
+        aliases: &["fujitsu"],
+        families: &["lifebook", "esprimo", "celius", "celsius"],
+        support_url: Some("https://support.ts.fujitsu.com/"),
+        utility: Some("Fujitsu Diagnostics / DeskUpdate where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F12 or Esc on some models",
+        notes: "Business and workstation models can have model-specific service procedures.",
+    },
+    VendorProfile {
+        vendor: "Dynabook / Toshiba",
+        aliases: &["dynabook", "toshiba"],
+        families: &["satellite", "portege", "tecra", "dynabook"],
+        support_url: Some("https://www.dynabook.com/support"),
+        utility: Some("Dynabook PC Health Monitor where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F12 on many models",
+        notes: "Legacy Toshiba and newer Dynabook models have different support resources.",
+    },
+    VendorProfile {
+        vendor: "Framework",
+        aliases: &["framework"],
+        families: &["laptop 13", "laptop 16", "laptop"],
+        support_url: Some("https://frame.work/support"),
+        utility: Some("Framework support guides and hardware diagnostics"),
+        setup_key: "F2 or F12 on many models",
+        boot_key: "F12 on many models",
+        notes: "Use Framework's model-specific guides; module replacement procedures differ by generation.",
+    },
+    VendorProfile {
+        vendor: "LG",
+        aliases: &["lg electronics", "lg"],
+        families: &["gram", "ultrapc", "ultra pc"],
+        support_url: Some("https://www.lg.com/us/support/"),
+        utility: Some("LG Update Center / LG Smart Assistant where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F10 or F12 on some models",
+        notes: "LG Gram support and firmware downloads are model- and region-specific.",
+    },
+    VendorProfile {
+        vendor: "HUAWEI",
+        aliases: &["huawei"],
+        families: &["matebook", "magicbook"],
+        support_url: Some("https://consumer.huawei.com/support/"),
+        utility: Some("HUAWEI PC Manager where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F12 on some models",
+        notes: "Check the exact MateBook model instructions.",
+    },
+    VendorProfile {
+        vendor: "HONOR",
+        aliases: &["honor"],
+        families: &["magicbook"],
+        support_url: Some("https://www.honor.com/global/support/"),
+        utility: Some("HONOR PC Manager where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F12 on some models",
+        notes: "Confirm the product's regional model identifier before downloading drivers.",
+    },
+    VendorProfile {
+        vendor: "Xiaomi / Redmi",
+        aliases: &["xiaomi", "redmi"],
+        families: &["redmibook", "xiaomi book", "mi notebook"],
+        support_url: Some("https://www.mi.com/global/support/"),
+        utility: Some("Xiaomi PC Manager where supported"),
+        setup_key: "F2 on many models",
+        boot_key: "F12 on some models",
+        notes: "Use the exact regional model and official support package.",
+    },
+    VendorProfile {
+        vendor: "Panasonic",
+        aliases: &["panasonic"],
+        families: &["toughbook", "toughpad", "let's note"],
+        support_url: Some("https://pc-dl.panasonic.co.jp/itn/support/"),
+        utility: Some("Panasonic PC Settings / Toughbook diagnostics where supported"),
+        setup_key: "F2 or F9 on some models",
+        boot_key: "F12 or F2 on some models",
+        notes: "Rugged Toughbook hardware uses model-specific diagnostics and firmware guidance.",
+    },
+    VendorProfile {
+        vendor: "VAIO / Sony",
+        aliases: &["vaio", "sony"],
+        families: &["vaio", "sx"],
+        support_url: Some("https://support.us.vaio.com/"),
+        utility: Some("VAIO Care / VAIO Update where supported"),
+        setup_key: "Assist button, F2 or model-specific key",
+        boot_key: "Assist button or F11/F12 depending on model",
+        notes: "Legacy Sony VAIO and current VAIO product support may use different regional portals.",
+    },
+    VendorProfile {
+        vendor: "MEDION",
+        aliases: &["medion"],
+        families: &["akoya", "erazer", "crawler"],
+        support_url: Some("https://www.medion.com/gb/service/"),
+        utility: Some("MEDION Service App / model-specific diagnostics"),
+        setup_key: "F2 on many models",
+        boot_key: "F10 or F12 on some models",
+        notes: "Use the full MSN/product number for the correct drivers and manuals.",
+    },
+    VendorProfile {
+        vendor: "GIGABYTE",
+        aliases: &["gigabyte"],
+        families: &["b650", "b760", "x670", "z790", "aero", "aorus", "gaming"],
+        support_url: Some("https://www.gigabyte.com/Support"),
+        utility: Some("GIGABYTE Control Center / UEFI diagnostics where supported"),
+        setup_key: "Delete on many systems",
+        boot_key: "F12 on many systems",
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "ASRock",
+        aliases: &["asrock"],
+        families: &["b650", "b550", "x670", "z790", "steel legend", "taichi", "phantom"],
+        support_url: Some("https://www.asrock.com/support/"),
+        utility: Some("UEFI diagnostics and vendor motherboard utilities"),
+        setup_key: "F2 or Delete on many boards",
+        boot_key: "F11 on many boards",
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "Intel",
+        aliases: &["intel"],
+        families: &["nuc"],
+        support_url: Some("https://www.intel.com/content/www/us/en/support/detect.html"),
+        utility: Some("Intel Driver & Support Assistant / Intel System Support Utility"),
+        setup_key: "F2 on many NUC models",
+        boot_key: "F10 on many NUC models",
+        notes: "Intel-branded NUC systems are now serviced by ASUS; use the model-specific support page.",
+    },
+    VendorProfile {
+        vendor: "Supermicro",
+        aliases: &["supermicro"],
+        families: &["x11", "x12", "x13", "h11", "h12"],
+        support_url: Some("https://www.supermicro.com/support"),
+        utility: Some("Supermicro IPMI/BMC and vendor UEFI diagnostics"),
+        setup_key: "Delete on many boards",
+        boot_key: "F11 on many boards",
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "Biostar",
+        aliases: &["biostar"],
+        families: &["b650", "b760", "x670", "z790", "racing"],
+        support_url: Some("https://www.biostar.com.tw/app/en/support/"),
+        utility: Some("Vendor UEFI diagnostics and board utilities"),
+        setup_key: "Delete on many boards",
+        boot_key: "F9 on many boards",
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "ECS",
+        aliases: &["elitegroup", "ecs"],
+        families: &["b650", "h610", "b760", "z790"],
+        support_url: Some("https://www.ecs.com.tw/"),
+        utility: Some("Vendor UEFI diagnostics and board utilities"),
+        setup_key: "Delete on many boards",
+        boot_key: "F11 on many boards",
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "System76",
+        aliases: &["system76"],
+        families: &["gazelle", "lemur", "oryx", "pangolin", "thelio", "darter", "adder"],
+        support_url: Some("https://support.system76.com/"),
+        utility: Some("System76 Diagnostics / firmware manager where supported"),
+        setup_key: "F2 or Delete depending on model",
+        boot_key: "F7/F10/F12 depending on model",
+        notes: "System76 firmware (coreboot/EDK2) and Pop!_OS guidance is model-specific.",
+    },
+    VendorProfile {
+        vendor: "TUXEDO",
+        aliases: &["tuxedo", "schenker"],
+        families: &["pulse", "infinitybook", "aura", "stella"],
+        support_url: Some("https://www.tuxedocomputers.com/en/Support"),
+        utility: Some("TUXEDO Control Center and vendor firmware tools"),
+        setup_key: "F2 on many models",
+        boot_key: "F7 on many models",
+        notes: REGIONAL_NOTE,
+    },
+    VendorProfile {
+        vendor: "CHUWI",
+        aliases: &["chuwi"],
+        families: &["herobook", "gemibook", "corebook", "minibook", "lapbook"],
+        support_url: None,
+        utility: None,
+        setup_key: "F2 or Delete on many models",
+        boot_key: "F7 or F12 on many models",
+        notes: "Budget and mini PC vendor without a single global support portal. Use the reseller or the model page for firmware; do not flash another model's BIOS.",
+    },
+    VendorProfile {
+        vendor: "Teclast",
+        aliases: &["teclast"],
+        families: &["f7", "f15", "tbook", "x6"],
+        support_url: None,
+        utility: None,
+        setup_key: "F2 or Delete on many models",
+        boot_key: "F7 or F12 on many models",
+        notes: "Budget tablets and mini PCs. Confirm the exact model and vendor listing before firmware work.",
+    },
+    VendorProfile {
+        vendor: "Infinix",
+        aliases: &["infinix"],
+        families: &["zerobook", "inbook"],
+        support_url: None,
+        utility: None,
+        setup_key: "F2 on many models",
+        boot_key: "F12 on some models",
+        notes: REGIONAL_NOTE,
+    },
+    VendorProfile {
+        vendor: "itel",
+        aliases: &["itel"],
+        families: &["book", "epic"],
+        support_url: None,
+        utility: None,
+        setup_key: "F2 on many models",
+        boot_key: "F12 on some models",
+        notes: REGIONAL_NOTE,
+    },
+    VendorProfile {
+        vendor: "Walton",
+        aliases: &["walton"],
+        families: &["prelude", "olimpia", "futura"],
+        support_url: Some("https://waltonbd.com/"),
+        utility: None,
+        setup_key: "F2 or Delete on many models",
+        boot_key: "F12 on many models",
+        notes: REGIONAL_NOTE,
+    },
+    VendorProfile {
+        vendor: "Positivo",
+        aliases: &["positivo"],
+        families: &["master", "motion", "union"],
+        support_url: Some("https://www.positivo.com.br/"),
+        utility: None,
+        setup_key: "F2 or Delete on many models",
+        boot_key: "F12 on many models",
+        notes: REGIONAL_NOTE,
+    },
+    VendorProfile {
+        vendor: "Lanix",
+        aliases: &["lanix"],
+        families: &["neuron", "l1400", "lt"],
+        support_url: Some("https://www.lanix.com/"),
+        utility: None,
+        setup_key: "F2 on many models",
+        boot_key: "F12 on many models",
+        notes: REGIONAL_NOTE,
+    },
+    VendorProfile {
+        vendor: "iBUYPOWER",
+        aliases: &["ibuypower", "i buy power"],
+        families: &["element", "slate", "trace", "revolt", "y60", "y40"],
+        support_url: Some("https://www.ibuypower.com/support"),
+        utility: None,
+        setup_key: DESKTOP_SETUP_KEY,
+        boot_key: DESKTOP_BOOT_KEY,
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "CyberPowerPC",
+        aliases: &["cyberpower"],
+        families: &["gamer master", "gamer xtreme", "slc"],
+        support_url: Some("https://www.cyberpowerpc.com/support"),
+        utility: None,
+        setup_key: DESKTOP_SETUP_KEY,
+        boot_key: DESKTOP_BOOT_KEY,
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "Falcon Northwest",
+        aliases: &["falcon northwest"],
+        families: &["talon", "fragbox", "mach v", "tiki"],
+        support_url: Some("https://www.falcon-nw.com/support"),
+        utility: None,
+        setup_key: DESKTOP_SETUP_KEY,
+        boot_key: DESKTOP_BOOT_KEY,
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "MAINGEAR",
+        aliases: &["maingear"],
+        families: &["vybe", "shroud", "northwest", "element"],
+        support_url: Some("https://maingear.com/support"),
+        utility: None,
+        setup_key: DESKTOP_SETUP_KEY,
+        boot_key: DESKTOP_BOOT_KEY,
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "ORIGIN PC",
+        aliases: &["origin pc", "originpc"],
+        families: &["millennium", "genesis", "chronos", "neuron"],
+        support_url: Some("https://www.originpc.com/support/"),
+        utility: None,
+        setup_key: DESKTOP_SETUP_KEY,
+        boot_key: DESKTOP_BOOT_KEY,
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "Puget Systems",
+        aliases: &["puget"],
+        families: &["serenity", "spirit", "peak", "traverse"],
+        support_url: Some("https://www.pugetsystems.com/support/"),
+        utility: None,
+        setup_key: DESKTOP_SETUP_KEY,
+        boot_key: DESKTOP_BOOT_KEY,
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "NZXT",
+        aliases: &["nzxt"],
+        families: &["player", "build", "h1", "h5", "h7"],
+        support_url: Some("https://support.nzxt.com/"),
+        utility: Some("NZXT CAM diagnostics where supported"),
+        setup_key: DESKTOP_SETUP_KEY,
+        boot_key: DESKTOP_BOOT_KEY,
+        notes: BOARD_NOTE,
+    },
+    VendorProfile {
+        vendor: "Raspberry Pi",
+        aliases: &["raspberry pi"],
+        families: &["raspberry pi 5", "raspberry pi 4", "raspberry pi 400", "compute module"],
+        support_url: Some("https://www.raspberrypi.com/documentation/"),
+        utility: None,
+        setup_key: "ARM single-board computer: no Windows firmware setup utility",
+        boot_key: "Boot order is configured in the bootloader configuration, not a UEFI menu",
+        notes: "ARM single-board computer. Windows 10/11 does not run natively on this hardware, so only the Linux diagnostics apply and no x86 firmware guidance is valid.",
+    },
+    VendorProfile {
+        vendor: "PINE64",
+        aliases: &["pine64", "pinebook"],
+        families: &["pinebook", "rockpro", "quartz64", "star64"],
+        support_url: Some("https://wiki.pine64.org/"),
+        utility: None,
+        setup_key: "ARM single-board computer: no Windows firmware setup utility",
+        boot_key: "Boot media is selected by the board bootloader, not a UEFI menu",
+        notes: "ARM single-board computer. Windows 10/11 does not run natively on this hardware; only the Linux diagnostics apply.",
+    },
+];
+
+/// Lowercases an identity string and collapses repeated whitespace so matching is stable.
+fn normalize_identity(value: &str) -> String {
+    value
+        .to_ascii_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// SMBIOS placeholders that Windows and Linux report on DIY, whitebox and re-badged systems.
+const PLACEHOLDER_IDENTITIES: &[&str] = &[
+    "system manufacturer",
+    "system product name",
+    "to be filled",
+    "o.e.m",
+    "default string",
+    "not specified",
+    "not available",
+    "not reported by os",
+    "unknown",
+    "oem",
+    "n/a",
+    "none",
+];
+
+fn manufacturer_is_placeholder(identity: &str) -> bool {
+    let identity = normalize_identity(identity);
+    if identity.is_empty() {
+        return true;
     }
+    PLACEHOLDER_IDENTITIES
+        .iter()
+        .any(|placeholder| identity.contains(placeholder))
+}
+
+/// Hypervisor and cloud identities reported as the system manufacturer.
+///
+/// These machines have no physical chassis, no vendor firmware and no meaningful SMART data,
+/// so they must never be matched to a consumer brand.
+const MANUFACTURER_VM_IDENTITIES: &[&str] = &[
+    "qemu",
+    "vmware",
+    "virtualbox",
+    "innotek",
+    "xen",
+    "parallels",
+    "bochs",
+    "kubevirt",
+    "openstack",
+    "amazon ec2",
+    "google compute engine",
+    "alibaba",
+    "digitalocean",
+    "nutanix",
+    "red hat",
+];
+
+/// Board vendors that only appear inside a virtual machine (Hyper-V, Azure and Windows VMs
+/// report "Microsoft Corporation" as the baseboard manufacturer).
+const BOARD_VM_IDENTITIES: &[&str] = &[
+    "microsoft corporation",
+    "qemu",
+    "vmware",
+    "virtualbox",
+    "innotek",
+    "xen",
+    "parallels",
+    "bochs",
+    "kubevirt",
+    "openstack",
+    "amazon ec2",
+    "google compute engine",
+    "alibaba",
+    "digitalocean",
+    "nutanix",
+    "red hat",
+];
+
+fn matches_any_identity(identity: &str, candidates: &[&str]) -> bool {
+    let identity = normalize_identity(identity);
+    !identity.is_empty()
+        && candidates
+            .iter()
+            .any(|candidate| identity.contains(candidate))
+}
+
+fn virtual_machine_profile(identity: &str) -> VendorSupportProfile {
+    VendorSupportProfile {
+        vendor: "Unknown / custom manufacturer".into(),
+        product_family: None,
+        support_url: None,
+        diagnostic_utility: None,
+        firmware_setup_hint:
+            "Virtual machines have no vendor firmware setup utility; configure the hypervisor instead"
+                .into(),
+        boot_menu_hint: "Boot order is controlled by the hypervisor, not a physical boot-menu key"
+            .into(),
+        notes: format!(
+            "This system reports '{}' and appears to be a virtual machine or cloud instance. Hardware sensors, SMART data, firmware, driver inventory and battery readings describe the hypervisor, not physical hardware, so they must not be used to judge a real PC.",
+            identity.trim()
+        ),
+    }
+}
+
+fn match_vendor_profile(identity: &str) -> Option<&'static VendorProfile> {
+    let identity = normalize_identity(identity);
+    if identity.is_empty() || manufacturer_is_placeholder(&identity) {
+        return None;
+    }
+    VENDOR_PROFILES
+        .iter()
+        .find(|profile| profile.aliases.iter().any(|alias| identity.contains(alias)))
+}
+
+/// Board vendor for systems whose SMBIOS manufacturer field is a placeholder.
+fn platform_baseboard_vendor() -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(output) = run_command(
+            "powershell.exe",
+            &[
+                "-NoProfile".into(),
+                "-NonInteractive".into(),
+                "-Command".into(),
+                "(Get-CimInstance Win32_BaseBoard).Manufacturer".into(),
+            ],
+            10,
+        ) {
+            let value = output.stdout.trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        return read_text(std::path::Path::new("/sys/class/dmi/id/board_vendor"));
+    }
+    #[allow(unreachable_code)]
+    None
+}
+
+fn unknown_vendor_profile() -> VendorSupportProfile {
+    VendorSupportProfile {
+        vendor: "Unknown / custom manufacturer".into(),
+        product_family: None,
+        support_url: None,
+        diagnostic_utility: None,
+        firmware_setup_hint: "Check the exact model manual; common keys include F2 or Delete"
+            .into(),
+        boot_menu_hint: "Check the exact model manual; common keys include F12 or Esc".into(),
+        notes:
+            "No manufacturer was confidently matched. Do not use another vendor's firmware package."
+                .into(),
+    }
+}
+
+/// Matches a system against the brand catalogue. Pure: no commands, no I/O, unit tested.
+fn resolve_vendor_support_profile(
+    manufacturer: &str,
+    model: &str,
+    baseboard_vendor: Option<&str>,
+) -> VendorSupportProfile {
+    let model_identity = normalize_identity(model);
+    if model_identity.contains("virtual machine") {
+        return virtual_machine_profile(manufacturer);
+    }
+    if matches_any_identity(manufacturer, MANUFACTURER_VM_IDENTITIES) {
+        return virtual_machine_profile(manufacturer);
+    }
+    let direct = match_vendor_profile(manufacturer);
+    let (profile, matched_board) = match direct {
+        Some(profile) => (Some(profile), None),
+        None => {
+            let board = baseboard_vendor.filter(|value| !manufacturer_is_placeholder(value));
+            if let Some(board) = board {
+                if matches_any_identity(board, BOARD_VM_IDENTITIES) {
+                    return virtual_machine_profile(board);
+                }
+            }
+            let board = board.and_then(match_vendor_profile);
+            (board, board.and(baseboard_vendor))
+        }
+    };
+    let Some(profile) = profile else {
+        return unknown_vendor_profile();
+    };
+    let product_family = profile
+        .families
+        .iter()
+        .find(|family| model_identity.contains(*family))
+        .map(|family| family.to_string());
+    let mut notes = profile.notes.to_string();
+    if let Some(board) = matched_board {
+        notes = format!(
+            "Matched through the motherboard vendor '{}' because the system manufacturer field is a placeholder. {notes}",
+            board.trim()
+        );
+    }
+    VendorSupportProfile {
+        vendor: profile.vendor.to_string(),
+        product_family,
+        support_url: profile.support_url.map(str::to_string),
+        diagnostic_utility: profile.utility.map(str::to_string),
+        firmware_setup_hint: profile.setup_key.to_string(),
+        boot_menu_hint: profile.boot_key.to_string(),
+        notes,
+    }
+}
+
+fn vendor_support_profile(manufacturer: &str, model: &str) -> VendorSupportProfile {
+    let baseboard = if manufacturer_is_placeholder(manufacturer) {
+        platform_baseboard_vendor()
+    } else {
+        None
+    };
+    resolve_vendor_support_profile(manufacturer, model, baseboard.as_deref())
 }
 
 fn pnp_problem_description(code: u32) -> &'static str {
@@ -5579,6 +6009,233 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("frame.work"));
+    }
+
+    #[test]
+    fn vendor_catalogue_covers_every_requested_pc_brand() {
+        let cases: &[(&str, &str, &str)] = &[
+            ("LENOVO", "ThinkPad T14 Gen 4", "Lenovo"),
+            ("Hewlett-Packard", "HP EliteBook 840 G9", "HP"),
+            ("HP Inc.", "OMEN 16", "HP"),
+            ("Dell Inc.", "XPS 15 9530", "Dell"),
+            ("Alienware", "m16 R1", "Dell"),
+            ("Apple Inc.", "MacBookPro18,3", "Apple"),
+            ("ASUSTeK COMPUTER INC.", "ROG Strix G16", "ASUS"),
+            ("Acer", "Nitro 5 AN515", "Acer"),
+            ("Micro-Star International Co., Ltd.", "Katana GF76", "MSI"),
+            (
+                "Microsoft Corporation",
+                "Surface Laptop 5",
+                "Microsoft Surface",
+            ),
+            ("Samsung Electronics", "Galaxy Book3 Pro", "Samsung"),
+            ("Razer", "Blade 15", "Razer"),
+            ("FUJITSU", "LIFEBOOK U9311", "Fujitsu"),
+            ("Dynabook Inc.", "Satellite Pro C50", "Dynabook / Toshiba"),
+            ("Framework Computer Inc.", "Laptop 13", "Framework"),
+            ("LG Electronics", "Gram 17", "LG"),
+            ("HUAWEI", "MateBook D15", "HUAWEI"),
+            ("HONOR", "MagicBook 14", "HONOR"),
+            ("Xiaomi", "RedmiBook Pro 15", "Xiaomi / Redmi"),
+            ("Panasonic", "Toughbook 55", "Panasonic"),
+            ("Sony", "VAIO SX14", "VAIO / Sony"),
+            ("MEDION", "ERAZER Beast", "MEDION"),
+            ("Gigabyte Technology Co., Ltd.", "AORUS 15", "GIGABYTE"),
+            ("ASRock", "B650 Steel Legend", "ASRock"),
+            ("Intel Corporation", "NUC 13 Pro", "Intel"),
+            ("Supermicro", "X13SAE", "Supermicro"),
+            ("Biostar", "Racing B650", "Biostar"),
+            ("Elitegroup Computer Systems", "B650", "ECS"),
+            ("System76", "Lemur Pro", "System76"),
+            ("TUXEDO Computers", "Pulse 15", "TUXEDO"),
+            ("CHUWI", "CoreBook X", "CHUWI"),
+            ("Teclast", "F15 Pro", "Teclast"),
+            ("Infinix", "ZeroBook 13", "Infinix"),
+            ("itel", "Epic Book", "itel"),
+            ("Walton", "Prelude N40", "Walton"),
+            ("Positivo", "Master D3400", "Positivo"),
+            ("Lanix", "Neuron L1400", "Lanix"),
+            ("iBUYPOWER", "Element 9260", "iBUYPOWER"),
+            ("CyberpowerPC", "Gamer Master", "CyberPowerPC"),
+            ("Falcon Northwest", "Talon", "Falcon Northwest"),
+            ("MAINGEAR", "VYBE", "MAINGEAR"),
+            ("ORIGIN PC", "Millennium", "ORIGIN PC"),
+            ("Puget Systems", "Serenity", "Puget Systems"),
+            ("NZXT", "Player One", "NZXT"),
+            ("Raspberry Pi Foundation", "Raspberry Pi 5", "Raspberry Pi"),
+            ("PINE64", "Pinebook Pro", "PINE64"),
+        ];
+        for (manufacturer, model, expected) in cases {
+            let profile = resolve_vendor_support_profile(manufacturer, model, None);
+            assert_eq!(
+                &profile.vendor, expected,
+                "{manufacturer} ({model}) should map to {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn diy_and_whitebox_systems_fall_back_to_the_motherboard_vendor() {
+        for placeholder in [
+            "System manufacturer",
+            "To Be Filled By O.E.M.",
+            "Default string",
+            "Unknown",
+            "",
+            "OEM",
+            "Not Specified",
+        ] {
+            let without_board =
+                resolve_vendor_support_profile(placeholder, "System Product Name", None);
+            assert_eq!(without_board.vendor, "Unknown / custom manufacturer");
+            assert!(without_board.support_url.is_none());
+            assert!(without_board.diagnostic_utility.is_none());
+
+            let with_board = resolve_vendor_support_profile(
+                placeholder,
+                "B650 AORUS ELITE AX",
+                Some("Gigabyte Technology Co., Ltd."),
+            );
+            assert_eq!(with_board.vendor, "GIGABYTE");
+            assert_eq!(with_board.product_family.as_deref(), Some("b650"));
+            assert!(with_board.notes.contains("motherboard vendor"));
+        }
+    }
+
+    #[test]
+    fn a_real_manufacturer_wins_over_the_motherboard_vendor() {
+        let profile = resolve_vendor_support_profile(
+            "LENOVO",
+            "ThinkPad X1 Carbon",
+            Some("Compal Information (Kunshan) Co., Ltd."),
+        );
+        assert_eq!(profile.vendor, "Lenovo");
+        assert!(!profile.notes.contains("motherboard vendor"));
+    }
+
+    #[test]
+    fn arm_single_board_computers_are_labelled_as_not_windows_targets() {
+        let pi = resolve_vendor_support_profile(
+            "Raspberry Pi Foundation",
+            "Raspberry Pi 5 Model B",
+            None,
+        );
+        assert!(pi.notes.contains("Windows 10/11 does not run natively"));
+        let pine = resolve_vendor_support_profile("PINE64", "Pinebook Pro", None);
+        assert!(pine.notes.contains("Windows 10/11 does not run natively"));
+    }
+
+    #[test]
+    fn an_unmatched_manufacturer_never_borrows_another_vendor_guidance() {
+        let profile = resolve_vendor_support_profile("Acme Computers Ltd", "Model 1", None);
+        assert_eq!(profile.vendor, "Unknown / custom manufacturer");
+        assert!(profile.support_url.is_none());
+        assert!(profile.diagnostic_utility.is_none());
+        assert!(profile.notes.contains("Do not use another vendor"));
+    }
+
+    #[test]
+    fn vendor_catalogue_entries_are_well_formed() {
+        use std::collections::HashMap;
+        let mut alias_owner: HashMap<&str, &str> = HashMap::new();
+        for profile in VENDOR_PROFILES {
+            assert!(
+                !profile.vendor.trim().is_empty(),
+                "every entry needs a vendor name"
+            );
+            assert!(
+                !profile.aliases.is_empty(),
+                "{} needs at least one alias",
+                profile.vendor
+            );
+            assert!(
+                !profile.notes.trim().is_empty(),
+                "{} needs notes",
+                profile.vendor
+            );
+            for alias in profile.aliases {
+                assert_eq!(
+                    *alias,
+                    alias.to_ascii_lowercase(),
+                    "alias {alias} of {} must be lowercase",
+                    profile.vendor
+                );
+                assert!(
+                    !alias.trim().is_empty(),
+                    "{} has an empty alias",
+                    profile.vendor
+                );
+                if let Some(previous) = alias_owner.insert(alias, profile.vendor) {
+                    panic!(
+                        "alias '{alias}' is claimed by both {previous} and {}",
+                        profile.vendor
+                    );
+                }
+            }
+            for family in profile.families {
+                assert_eq!(
+                    *family,
+                    family.to_ascii_lowercase(),
+                    "family {family} of {} must be lowercase",
+                    profile.vendor
+                );
+            }
+            if let Some(url) = profile.support_url {
+                assert!(
+                    url.starts_with("https://"),
+                    "support URL of {} must use HTTPS",
+                    profile.vendor
+                );
+            }
+        }
+        assert!(
+            VENDOR_PROFILES.len() >= 40,
+            "the catalogue must keep covering the documented brand list"
+        );
+    }
+
+    #[test]
+    fn virtual_machines_are_labelled_and_never_borrow_a_consumer_brand() {
+        let board_only = resolve_vendor_support_profile(
+            "Unknown OEM",
+            "Custom Build",
+            Some("Microsoft Corporation"),
+        );
+        assert_eq!(board_only.vendor, "Unknown / custom manufacturer");
+        assert!(board_only.support_url.is_none());
+        assert!(board_only.notes.contains("virtual machine"));
+
+        let qemu = resolve_vendor_support_profile("QEMU", "Standard PC (Q35 + ICH9, 2009)", None);
+        assert!(qemu.notes.contains("virtual machine"));
+
+        let hyperv =
+            resolve_vendor_support_profile("Microsoft Corporation", "Virtual Machine", None);
+        assert!(hyperv.notes.contains("virtual machine"));
+
+        let surface =
+            resolve_vendor_support_profile("Microsoft Corporation", "Surface Laptop 5", None);
+        assert_eq!(surface.vendor, "Microsoft Surface");
+    }
+
+    #[test]
+    fn placeholder_identity_detection_is_case_and_space_insensitive() {
+        for placeholder in [
+            "  System   Manufacturer ",
+            "TO BE FILLED BY O.E.M.",
+            "default string",
+            "o.e.m.",
+        ] {
+            assert!(
+                manufacturer_is_placeholder(placeholder),
+                "{placeholder} should be treated as a placeholder"
+            );
+        }
+        for real in ["Dell Inc.", "LENOVO", "Hewlett-Packard", "iBUYPOWER"] {
+            assert!(
+                !manufacturer_is_placeholder(real),
+                "{real} is a real vendor"
+            );
+        }
     }
 
     #[test]
