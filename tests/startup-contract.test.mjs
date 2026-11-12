@@ -30,6 +30,8 @@ test("release builds hide the console, so startup failures must be written to a 
   assert.match(libRs, /report_startup_failure\(&error\.to_string\(\)\)/, "run() must report the failure it receives");
   assert.match(libRs, /startup-error\.log/, "the failure report must name a log file the user can send");
   assert.doesNotMatch(libRs, /\.expect\("error while running Arcange CrossDiag"\)/, "a silent panic must not replace the report");
+  assert.match(libRs, /std::io::Write::write_all/, "the reporter must call write_all through the trait explicitly");
+  assert.doesNotMatch(libRs.slice(0, 900), /io::\{Read, Write\}/, "a module-level Write import makes File::by_ref() ambiguous (E0034)");
 });
 
 test("the development server address is identical in Vite and Tauri", () => {
