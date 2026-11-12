@@ -2784,6 +2784,75 @@ fn manufacturer_is_placeholder(identity: &str) -> bool {
         .any(|placeholder| identity.contains(placeholder))
 }
 
+/// Hypervisor and cloud identities reported as the system manufacturer.
+///
+/// These machines have no physical chassis, no vendor firmware and no meaningful SMART data,
+/// so they must never be matched to a consumer brand.
+const MANUFACTURER_VM_IDENTITIES: &[&str] = &[
+    "qemu",
+    "vmware",
+    "virtualbox",
+    "innotek",
+    "xen",
+    "parallels",
+    "bochs",
+    "kubevirt",
+    "openstack",
+    "amazon ec2",
+    "google compute engine",
+    "alibaba",
+    "digitalocean",
+    "nutanix",
+    "red hat",
+];
+
+/// Board vendors that only appear inside a virtual machine (Hyper-V, Azure and Windows VMs
+/// report "Microsoft Corporation" as the baseboard manufacturer).
+const BOARD_VM_IDENTITIES: &[&str] = &[
+    "microsoft corporation",
+    "qemu",
+    "vmware",
+    "virtualbox",
+    "innotek",
+    "xen",
+    "parallels",
+    "bochs",
+    "kubevirt",
+    "openstack",
+    "amazon ec2",
+    "google compute engine",
+    "alibaba",
+    "digitalocean",
+    "nutanix",
+    "red hat",
+];
+
+fn matches_any_identity(identity: &str, candidates: &[&str]) -> bool {
+    let identity = normalize_identity(identity);
+    !identity.is_empty()
+        && candidates
+            .iter()
+            .any(|candidate| identity.contains(candidate))
+}
+
+fn virtual_machine_profile(identity: &str) -> VendorSupportProfile {
+    VendorSupportProfile {
+        vendor: "Unknown / custom manufacturer".into(),
+        product_family: None,
+        support_url: None,
+        diagnostic_utility: None,
+        firmware_setup_hint:
+            "Virtual machines have no vendor firmware setup utility; configure the hypervisor instead"
+                .into(),
+        boot_menu_hint: "Boot order is controlled by the hypervisor, not a physical boot-menu key"
+            .into(),
+        notes: format!(
+            "This system reports '{}' and appears to be a virtual machine or cloud instance. Hardware sensors, SMART data, firmware, driver inventory and battery readings describe the hypervisor, not physical hardware, so they must not be used to judge a real PC.",
+            identity.trim()
+        ),
+    }
+}
+
 fn match_vendor_profile(identity: &str) -> Option<&'static VendorProfile> {
     let identity = normalize_identity(identity);
     if identity.is_empty() || manufacturer_is_placeholder(&identity) {
@@ -2843,20 +2912,30 @@ fn resolve_vendor_support_profile(
     model: &str,
     baseboard_vendor: Option<&str>,
 ) -> VendorSupportProfile {
+    let model_identity = normalize_identity(model);
+    if model_identity.contains("virtual machine") {
+        return virtual_machine_profile(manufacturer);
+    }
+    if matches_any_identity(manufacturer, MANUFACTURER_VM_IDENTITIES) {
+        return virtual_machine_profile(manufacturer);
+    }
     let direct = match_vendor_profile(manufacturer);
     let (profile, matched_board) = match direct {
         Some(profile) => (Some(profile), None),
         None => {
-            let board = baseboard_vendor
-                .filter(|value| !manufacturer_is_placeholder(value))
-                .and_then(match_vendor_profile);
+            let board = baseboard_vendor.filter(|value| !manufacturer_is_placeholder(value));
+            if let Some(board) = board {
+                if matches_any_identity(board, BOARD_VM_IDENTITIES) {
+                    return virtual_machine_profile(board);
+                }
+            }
+            let board = board.and_then(match_vendor_profile);
             (board, board.and(baseboard_vendor))
         }
     };
     let Some(profile) = profile else {
         return unknown_vendor_profile();
     };
-    let model_identity = normalize_identity(model);
     let product_family = profile
         .families
         .iter()
@@ -6113,6 +6192,29 @@ mod tests {
             VENDOR_PROFILES.len() >= 40,
             "the catalogue must keep covering the documented brand list"
         );
+    }
+
+    #[test]
+    fn virtual_machines_are_labelled_and_never_borrow_a_consumer_brand() {
+        let board_only = resolve_vendor_support_profile(
+            "Unknown OEM",
+            "Custom Build",
+            Some("Microsoft Corporation"),
+        );
+        assert_eq!(board_only.vendor, "Unknown / custom manufacturer");
+        assert!(board_only.support_url.is_none());
+        assert!(board_only.notes.contains("virtual machine"));
+
+        let qemu = resolve_vendor_support_profile("QEMU", "Standard PC (Q35 + ICH9, 2009)", None);
+        assert!(qemu.notes.contains("virtual machine"));
+
+        let hyperv =
+            resolve_vendor_support_profile("Microsoft Corporation", "Virtual Machine", None);
+        assert!(hyperv.notes.contains("virtual machine"));
+
+        let surface =
+            resolve_vendor_support_profile("Microsoft Corporation", "Surface Laptop 5", None);
+        assert_eq!(surface.vendor, "Microsoft Surface");
     }
 
     #[test]
