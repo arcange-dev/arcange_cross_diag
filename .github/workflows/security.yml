@@ -60,12 +60,12 @@ jobs:
           node-version: 22
           cache: npm
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           build-mode: none
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
 
   codeql-rust:
     runs-on: ubuntu-24.04
@@ -77,9 +77,9 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: rust
           build-mode: none
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
