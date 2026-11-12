@@ -128,9 +128,10 @@ jobs:
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc.') }}
           uploadUpdaterJson: true
-          # deb/rpm bundlers reject prerelease versions, so Linux publishes an AppImage
-          # while the version carries a prerelease suffix.
-          args: --config src-tauri/tauri.release.conf.json ${{ matrix.platform == 'ubuntu-24.04' && '--bundles appimage' || '' }}
+          # deb, rpm and msi bundlers reject prerelease versions, so a prerelease publishes
+          # an AppImage on Linux and an NSIS setup on Windows. Remove this override when
+          # tagging a stable version.
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.platform == 'ubuntu-24.04' && '--bundles appimage' || '--bundles nsis' }}
 
       - name: Validate generated installer bundle
         run: npm run test:bundle

@@ -89,4 +89,4 @@ Windows Authenticode signing is separate from Tauri updater signing. The release
 
 ## Linux package formats in the v1.0.0-rc series
 
-The `deb` and `rpm` bundlers reject prerelease versions (`1.0.0-rc.2`), and the Tauri version has to stay in step with `package.json`, so Linux release candidates publish an **AppImage** only. The release workflow and the cross-platform checks pass `--bundles appimage` on Linux. Once a stable version without a prerelease suffix is tagged, remove that override to publish DEB and RPM packages again.
+The `deb`, `rpm` and `msi` bundlers reject prerelease versions (`1.0.0-rc.2`), and the Tauri version has to stay in step with `package.json`, so release candidates publish an **AppImage** on Linux and an **NSIS setup** `.exe` on Windows. The release workflow and the platform checks pass `--bundles appimage` on Linux and `--bundles nsis` on Windows. Once a stable version without a prerelease suffix is tagged, remove those overrides to publish DEB, RPM and MSI packages again.

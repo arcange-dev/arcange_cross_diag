@@ -56,8 +56,10 @@ jobs:
       - name: Run Rust tests
         run: npm run test:rust
 
+      # The MSI bundler rejects prerelease versions, so the release candidate builds the
+      # NSIS setup executable only.
       - name: Build Windows desktop bundles
-        run: npm run build:desktop
+        run: npm run build:desktop -- --bundles nsis
 
       - name: Verify NSIS setup executable exists
         shell: pwsh
